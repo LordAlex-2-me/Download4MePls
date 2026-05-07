@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FetchDrop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+/* ── Reset & Tokens ─────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #06090e;
+  --surface:   #0c1118;
+  --surface2:  #111922;
+  --border:    #1c2530;
+  --border2:   #253040;
+  --accent:    #00c2e0;
+  --accent2:   #0091a8;
+  --accent-glow: rgba(0,194,224,0.12);
+  --text:      #dde6f0;
+  --muted:     #566778;
+  --muted2:    #8a9baa;
+  --success:   #1fd68a;
+  --warn:      #f5a623;
+  --error:     #f04f55;
+  --font-ui:   'DM Sans', sans-serif;
+  --font-head: 'Syne', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius:    10px;
+  --radius-sm: 6px;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Noise texture overlay ──────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* ── Grid scanline accent ───────────────────────────────── */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    linear-gradient(transparent 50%, rgba(0,194,224,0.015) 50%);
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Layout ─────────────────────────────────────────────── */
+.shell {
+  position: relative; z-index: 1;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0 20px 80px;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+header {
+  padding: 48px 0 40px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 36px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.logo-mark {
+  width: 34px; height: 34px;
+  background: var(--accent);
+  border-radius: 8px;
+  display: grid; place-items: center;
+  box-shadow: 0 0 18px var(--accent-glow);
+}
+
+.logo-mark svg { display: block; }
+
+h1 {
+  font-family: var(--font-head);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #fff;
+}
+
+.tagline {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+/* ── Section label ──────────────────────────────────────── */
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── Card ───────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  transition: border-color 0.2s;
+}
+.card:focus-within { border-color: var(--border2); }
+
+/* ── Request form ───────────────────────────────────────── */
+.form-section { margin-bottom: 36px; }
+
+.form-row { margin-bottom: 14px; }
+
+label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted2);
+  margin-bottom: 6px;
+  letter-spacing: 0.3px;
+}
+
+input[type="text"],
+input[type="url"],
+input[type="password"],
+select {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  -webkit-appearance: none;
+}
+
+input[type="url"] {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+input::placeholder { color: var(--muted); }
+
+input:focus, select:focus {
+  border-color: var(--accent2);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+select {
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23566778' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+select option { background: var(--surface2); }
+
+.cred-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cred-grid.single { grid-template-columns: 1fr; }
+
+.cred-fields { display: none; }
+.cred-fields.visible { display: block; }
+.cred-fields .cred-grid { margin-top: 10px; }
+
+/* Submit button */
+.btn-primary {
+  width: 100%;
+  margin-top: 18px;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #03090e;
+  font-family: var(--font-head);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 11px 20px;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-primary:hover {
+  background: #00d8fa;
+  box-shadow: 0 0 24px rgba(0,194,224,0.3);
+}
+.btn-primary:active { transform: scale(0.99); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Jobs list ──────────────────────────────────────────── */
+.jobs-section { margin-bottom: 36px; }
+
+#jobs-list { display: flex; flex-direction: column; gap: 10px; }
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--muted);
+  font-size: 13px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+.empty-state .icon { font-size: 28px; margin-bottom: 8px; opacity: 0.4; }
+
+/* ── Job card ───────────────────────────────────────────── */
+.job-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  display: grid;
+  grid-template-rows: auto auto auto;
+  gap: 8px;
+  animation: slide-in 0.25s ease;
+  transition: border-color 0.2s;
+}
+.job-card.complete { border-color: rgba(31,214,138,0.18); }
+.job-card.error    { border-color: rgba(240,79,85,0.18); }
+.job-card.downloading { border-color: rgba(0,194,224,0.18); }
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.job-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.job-name {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text);
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.job-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.badge.pending     { background: rgba(86,103,120,0.2); color: var(--muted2); }
+.badge.downloading { background: rgba(0,194,224,0.12); color: var(--accent); }
+.badge.complete    { background: rgba(31,214,138,0.12); color: var(--success); }
+.badge.error       { background: rgba(240,79,85,0.12); color: var(--error); }
+
+.job-url {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+/* Progress bar */
+.progress-wrap {
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progress-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+  box-shadow: 0 0 8px var(--accent);
+}
+.progress-bar.complete { background: var(--success); box-shadow: 0 0 8px var(--success); }
+.progress-bar.error    { background: var(--error);   box-shadow: none; }
+
+/* Job actions row */
+.job-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.job-size {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted2);
+}
+
+.job-error-msg {
+  font-size: 12px;
+  color: var(--error);
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 4px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+  display: flex; align-items: center;
+}
+.btn-icon:hover { color: var(--text); background: var(--surface2); }
+.btn-icon.danger:hover { color: var(--error); }
+
+.btn-dl {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(31,214,138,0.1);
+  border: 1px solid rgba(31,214,138,0.2);
+  border-radius: var(--radius-sm);
+  color: var(--success);
+  font-family: var(--font-head);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.btn-dl:hover {
+  background: rgba(31,214,138,0.18);
+  box-shadow: 0 0 14px rgba(31,214,138,0.15);
+}
+
+.btn-retry {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(245,166,35,0.1);
+  border: 1px solid rgba(245,166,35,0.2);
+  border-radius: var(--radius-sm);
+  color: var(--warn);
+  font-family: var(--font-head);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-retry:hover { background: rgba(245,166,35,0.18); }
+
+/* ── Toast ──────────────────────────────────────────────── */
+#toast-container {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  display: flex; flex-direction: column; gap: 8px;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 13px;
+  padding: 10px 16px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  animation: toast-in 0.2s ease, toast-out 0.2s ease 2.8s forwards;
+  max-width: 300px;
+}
+.toast.success { border-left: 3px solid var(--success); }
+.toast.error   { border-left: 3px solid var(--error); }
+.toast.info    { border-left: 3px solid var(--accent); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes toast-out {
+  to { opacity: 0; transform: translateY(10px); }
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 560px) {
+  .cred-grid { grid-template-columns: 1fr; }
+  .job-actions { flex-wrap: wrap; }
+  h1 { font-size: 22px; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-mark">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#03090e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+      </div>
+      <h1>FetchDrop</h1>
+    </div>
+    <p class="tagline">Give it a URL. It fetches, you download.</p>
+  </header>
+
+  <!-- Request form -->
+  <section class="form-section">
+    <div class="section-label">New request</div>
+    <div class="card">
+      <div class="form-row">
+        <label for="url-input">File URL</label>
+        <input type="url" id="url-input" placeholder="https://example.com/file.zip" autocomplete="off" spellcheck="false" />
+      </div>
+
+      <div class="form-row">
+        <label for="filename-input">Save as <span style="color:var(--muted);font-size:11px">(optional — auto-detected if blank)</span></label>
+        <input type="text" id="filename-input" placeholder="my-file.zip" autocomplete="off" spellcheck="false" />
+      </div>
+
+      <div class="form-row">
+        <label for="cred-type">Authentication</label>
+        <select id="cred-type">
+          <option value="none">None — public URL</option>
+          <option value="basic">Basic auth (username + password)</option>
+          <option value="bearer">Bearer token</option>
+          <option value="cookie">Cookie string</option>
+          <option value="header">Custom header</option>
+        </select>
+      </div>
+
+      <!-- Basic auth fields -->
+      <div id="cred-basic" class="cred-fields">
+        <div class="cred-grid">
+          <div>
+            <label for="cred-user">Username</label>
+            <input type="text" id="cred-user" placeholder="username" autocomplete="off" />
+          </div>
+          <div>
+            <label for="cred-pass">Password</label>
+            <input type="password" id="cred-pass" placeholder="••••••••" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Bearer fields -->
+      <div id="cred-bearer" class="cred-fields">
+        <div class="cred-grid single">
+          <div>
+            <label for="cred-token">Token</label>
+            <input type="password" id="cred-token" placeholder="eyJhbGci..." autocomplete="off" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Cookie fields -->
+      <div id="cred-cookie" class="cred-fields">
+        <div class="cred-grid single">
+          <div>
+            <label for="cred-cookie-val">Cookie string</label>
+            <input type="text" id="cred-cookie-val" placeholder="session=abc123; token=xyz" autocomplete="off" spellcheck="false" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom header fields -->
+      <div id="cred-header" class="cred-fields">
+        <div class="cred-grid">
+          <div>
+            <label for="cred-hname">Header name</label>
+            <input type="text" id="cred-hname" placeholder="X-Api-Key" autocomplete="off" />
+          </div>
+          <div>
+            <label for="cred-hval">Header value</label>
+            <input type="text" id="cred-hval" placeholder="sk-..." autocomplete="off" spellcheck="false" />
+          </div>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="submit-btn" onclick="submitJob()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+        Fetch file
+      </button>
+    </div>
+  </section>
+
+  <!-- Jobs list -->
+  <section class="jobs-section">
+    <div class="section-label">Downloads</div>
+    <div id="jobs-list">
+      <div class="empty-state">
+        <div class="icon">↓</div>
+        No downloads yet — submit a URL above
+      </div>
+    </div>
+  </section>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+// ── State ───────────────────────────────────────────────
+let pollTimer = null;
+let activeJobs = new Set();
+
+// ── Credential toggle ────────────────────────────────────
+document.getElementById('cred-type').addEventListener('change', function () {
+  ['basic','bearer','cookie','header'].forEach(t => {
+    document.getElementById(`cred-${t}`).classList.remove('visible');
+  });
+  const val = this.value;
+  if (val !== 'none') document.getElementById(`cred-${val}`).classList.add('visible');
+});
+
+// ── Submit ───────────────────────────────────────────────
+async function submitJob() {
+  const urlInput = document.getElementById('url-input');
+  const url = urlInput.value.trim();
+  if (!url) { toast('Please enter a URL', 'error'); urlInput.focus(); return; }
+
+  const filename = document.getElementById('filename-input').value.trim() || null;
+  const credType = document.getElementById('cred-type').value;
+  let credentials = null;
+
+  if (credType === 'basic') {
+    const u = document.getElementById('cred-user').value.trim();
+    const p = document.getElementById('cred-pass').value;
+    if (!u || !p) { toast('Enter username and password', 'error'); return; }
+    credentials = { type: 'basic', username: u, password: p };
+  } else if (credType === 'bearer') {
+    const t = document.getElementById('cred-token').value.trim();
+    if (!t) { toast('Enter bearer token', 'error'); return; }
+    credentials = { type: 'bearer', token: t };
+  } else if (credType === 'cookie') {
+    const v = document.getElementById('cred-cookie-val').value.trim();
+    if (!v) { toast('Enter cookie string', 'error'); return; }
+    credentials = { type: 'cookie', value: v };
+  } else if (credType === 'header') {
+    const n = document.getElementById('cred-hname').value.trim();
+    const v = document.getElementById('cred-hval').value.trim();
+    if (!n || !v) { toast('Enter header name and value', 'error'); return; }
+    credentials = { type: 'header', name: n, value: v };
+  }
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, filename, credentials }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Unknown error');
+
+    toast('Job queued ✓', 'success');
+    urlInput.value = '';
+    document.getElementById('filename-input').value = '';
+    document.getElementById('cred-type').value = 'none';
+    ['basic','bearer','cookie','header'].forEach(t =>
+      document.getElementById(`cred-${t}`).classList.remove('visible'));
+
+    activeJobs.add(data.jobId);
+    startPolling();
+    await refreshJobs();
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Submit on Enter in URL field
+document.getElementById('url-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitJob();
+});
+
+// ── Polling ──────────────────────────────────────────────
+function startPolling() {
+  if (pollTimer) return;
+  pollTimer = setInterval(async () => {
+    if (activeJobs.size === 0) { clearInterval(pollTimer); pollTimer = null; return; }
+    await refreshJobs();
+  }, 1800);
+}
+
+async function refreshJobs() {
+  try {
+    const res = await fetch('/api/jobs');
+    const jobs = await res.json();
+
+    // Update active set
+    jobs.forEach(j => {
+      if (j.status === 'complete' || j.status === 'error') activeJobs.delete(j.id);
+      if (j.status === 'pending' || j.status === 'downloading') activeJobs.add(j.id);
+    });
+
+    renderJobs(jobs);
+  } catch { /* silently retry */ }
+}
+
+// ── Render ───────────────────────────────────────────────
+function renderJobs(jobs) {
+  const container = document.getElementById('jobs-list');
+  if (jobs.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="icon">↓</div>No downloads yet — submit a URL above</div>`;
+    return;
+  }
+
+  container.innerHTML = jobs.map(j => jobCardHTML(j)).join('');
+}
+
+function jobCardHTML(j) {
+  const progress = j.status === 'complete' ? 100 : (j.progress || 0);
+  const barClass = j.status === 'complete' ? 'complete' : j.status === 'error' ? 'error' : '';
+
+  const urlShort = j.url.length > 80 ? j.url.slice(0, 80) + '…' : j.url;
+
+  let actionsHTML = '';
+  if (j.status === 'complete') {
+    actionsHTML = `
+      <span class="job-size">${j.sizeFormatted || ''}</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <a class="btn-dl" href="/api/download/${j.id}" download="${j.filename}">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download
+        </a>
+        <button class="btn-icon danger" title="Delete" onclick="deleteJob('${j.id}')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+      </div>`;
+  } else if (j.status === 'error') {
+    actionsHTML = `
+      <span class="job-error-msg">${escHtml(j.error || 'Unknown error')}</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn-retry" onclick="retryJob('${j.id}')">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4"/></svg>
+          Retry
+        </button>
+        <button class="btn-icon danger" title="Delete" onclick="deleteJob('${j.id}')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+      </div>`;
+  } else {
+    const pct = j.totalBytes ? `${progress}%` : 'Fetching…';
+    actionsHTML = `<span class="job-size" style="color:var(--accent)">${pct}</span>
+      <button class="btn-icon danger" title="Cancel" onclick="deleteJob('${j.id}')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>`;
+  }
+
+  return `
+  <div class="job-card ${j.status}" id="job-${j.id}">
+    <div class="job-top">
+      <span class="job-name">${escHtml(j.filename)}</span>
+      <div class="job-meta">
+        <span class="badge ${j.status}">${j.status}</span>
+      </div>
+    </div>
+    <div class="job-url">${escHtml(urlShort)}</div>
+    <div class="progress-wrap">
+      <div class="progress-bar ${barClass}" style="width:${progress}%"></div>
+    </div>
+    <div class="job-actions">${actionsHTML}</div>
+  </div>`;
+}
+
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Actions ──────────────────────────────────────────────
+async function deleteJob(id) {
+  try {
+    await fetch(`/api/jobs/${id}`, { method: 'DELETE' });
+    activeJobs.delete(id);
+    await refreshJobs();
+    toast('Removed', 'info');
+  } catch { toast('Could not delete', 'error'); }
+}
+
+async function retryJob(id) {
+  try {
+    const res = await fetch(`/api/jobs/${id}/retry`, { method: 'POST' });
+    if (!res.ok) throw new Error((await res.json()).error);
+    activeJobs.add(id);
+    startPolling();
+    await refreshJobs();
+    toast('Retrying…', 'info');
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+// ── Toast ─────────────────────────────────────────────────
+function toast(msg, type = 'info') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+// ── Init ──────────────────────────────────────────────────
+(async () => {
+  await refreshJobs();
+  // Restart polling for any in-progress jobs surviving a page reload
+  startPolling();
+})();
+</script>
+</body>
+</html>
