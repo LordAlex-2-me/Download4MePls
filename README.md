@@ -1,4 +1,4 @@
-# FetchDrop
+# Download4MePls
 
 A personal remote-file fetcher. Give it a URL, it downloads the file server-side, and you pick it up whenever you're ready.
 
